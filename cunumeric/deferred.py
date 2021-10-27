@@ -1360,7 +1360,7 @@ class DeferredArray(NumPyThunk):
             self.shadow = self.runtime.to_eager_array(self, stacklevel + 1)
 
     def random_uniform(self, stacklevel, callsite=None):
-        assert self.dtype == np.float64
+        assert self.dtype in (np.float64, np.float32)
         self.random(
             RandGenCode.UNIFORM,
             [],

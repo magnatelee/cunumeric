@@ -26,8 +26,8 @@ float_type = "float32"
 
 
 def run_richardson_lucy(shape, filter_shape, num_iter, warmup, timing):
-    image = np.random.rand(*shape).astype(float_type)
-    psf = np.random.rand(*filter_shape).astype(float_type)
+    image = np.random.rand(*shape, dtype=float_type)
+    psf = np.random.rand(*filter_shape, dtype=float_type)
     im_deconv = np.full(image.shape, 0.5, dtype=float_type)
     psf_mirror = np.flip(psf)
 

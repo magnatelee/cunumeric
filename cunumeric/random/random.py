@@ -15,7 +15,6 @@
 
 import numpy as np
 import numpy.random as nprandom
-
 from cunumeric.array import ndarray
 from cunumeric.runtime import runtime
 
@@ -26,10 +25,11 @@ def seed(init=None):
     runtime.set_next_random_epoch(int(init))
 
 
-def rand(*shapeargs):
+def rand(*shapeargs, **kwargs):
     if shapeargs is None:
         return nprandom.rand()
-    result = ndarray(shapeargs, dtype=np.dtype(np.float64))
+    dtype = np.dtype(kwargs.get("dtype", "float64"))
+    result = ndarray(shapeargs, dtype=dtype)
     result._thunk.random_uniform(stacklevel=2)
     return result
 
@@ -59,7 +59,9 @@ def randint(low, high=None, size=None, dtype=None):
         dtype = np.dtype(np.int64)
     # TODO: randint must support unsigned integer dtypes as well
     if dtype.kind != "i":
-        raise TypeError("cunumeric.random.randint must be given an integer dtype")
+        raise TypeError(
+            "cunumeric.random.randint must be given an integer dtype"
+        )
     if not isinstance(size, tuple):
         size = (size,)
     result = ndarray(size, dtype=dtype)
