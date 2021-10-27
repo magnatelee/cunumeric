@@ -968,7 +968,7 @@ class ndarray(object):
     def conjugate(self, stacklevel=1):
         return self.conj(stacklevel)
 
-    def convolve(self, v, mode, stacklevel=1):
+    def convolve(self, v, mode, out=None, stacklevel=1):
         assert mode == "same"
         if self.ndim != v.ndim:
             raise RuntimeError("Arrays should have the same dimensions")
@@ -979,12 +979,13 @@ class ndarray(object):
 
         if self.dtype != v.dtype:
             v = v.astype(self.dtype)
-        out = ndarray(
-            shape=self.shape,
-            dtype=self.dtype,
-            stacklevel=(stacklevel + 1),
-            inputs=(self, v),
-        )
+        if out is None:
+            out = ndarray(
+                shape=self.shape,
+                dtype=self.dtype,
+                stacklevel=(stacklevel + 1),
+                inputs=(self, v),
+            )
         self._thunk.convolve(
             v._thunk, out._thunk, mode, stacklevel=(stacklevel + 1)
         )

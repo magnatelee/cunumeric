@@ -1496,7 +1496,7 @@ def sqrt(a, out=None, where=True, dtype=None, stacklevel=1, **kwargs):
 
 
 @copy_docstring(np.convolve)
-def convolve(a, v, mode="full"):
+def convolve(a, v, out=None, mode="full"):
     a_lg = ndarray.convert_to_cunumeric_ndarray(a, stacklevel=2)
     v_lg = ndarray.convert_to_cunumeric_ndarray(v, stacklevel=2)
 
@@ -1506,7 +1506,14 @@ def convolve(a, v, mode="full"):
     if a_lg.size < v_lg.size:
         v_lg, a_lg = a_lg, v_lg
 
-    return a_lg.convolve(v_lg, mode, stacklevel=2)
+    if out is not None:
+        out_lg = ndarray.convert_to_cunumeric_ndarray(out, stacklevel=2)
+        if out_lg.shape != a_lg.shape:
+            raise ValueError("Output array has an incompatible shape")
+    else:
+        out_lg = None
+
+    return a_lg.convolve(v_lg, mode, out=out_lg, stacklevel=2)
 
 
 # ### SORTING, SEARCHING and COUNTING
