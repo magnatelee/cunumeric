@@ -31,32 +31,22 @@ def run_richardson_lucy(shape, filter_shape, num_iter, warmup, timing):
     im_deconv = np.full(image.shape, 0.5, dtype=float_type)
     psf_mirror = np.flip(psf)
 
-    conv = None
-    conv_mirror = None
-    relative_blur = None
+    conv = np.empty(image.shape, dtype=float_type)
+    relative_blur = np.empty(image.shape, dtype=float_type)
 
     start = time()
 
     for idx in range(num_iter + warmup):
         if idx == warmup:
             start = time()
-        if conv is None:
-            conv = np.convolve(im_deconv, psf, mode="same")
-        else:
-            np.convolve(im_deconv, psf, out=conv, mode="same")
 
-        if relative_blur is None:
-            relative_blur = image / conv
-        else:
-            np.divide(image, conv, out=relative_blur)
+        np.convolve(im_deconv, psf, out=conv, mode="same")
 
-        if conv_mirror is None:
-            conv_mirror = np.convolve(relative_blur, psf_mirror, mode="same")
-        else:
-            np.convolve(
-                relative_blur, psf_mirror, out=conv_mirror, mode="same"
-            )
-        np.multiply(im_deconv, conv_mirror, out=im_deconv)
+        np.divide(image, conv, out=relative_blur)
+
+        np.convolve(relative_blur, psf_mirror, out=conv, mode="same")
+
+        np.multiply(im_deconv, conv, out=im_deconv)
 
     stop = time()
     total = (stop - start) / 1000.0
