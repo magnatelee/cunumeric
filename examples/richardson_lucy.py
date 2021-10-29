@@ -16,34 +16,93 @@
 import argparse
 
 from benchmark import run_benchmark
-from legate.timing import time
-
-import cunumeric as np
 
 float_type = "float32"
 
 # A simplified implementation of Richardson-Lucy deconvolution
 
 
-def run_richardson_lucy(shape, filter_shape, num_iter, warmup, timing):
+def run_richardson_lucy(
+    shape, filter_shape, num_iter, warmup, timing, package
+):
+    if package == "cunumeric":
+        from legate.timing import time
+
+        import cunumeric as np
+
+        convolve = np.convolve
+
+        def timestamp():
+            return time()
+
+        def time_in_ms(start_ts, end_ts):
+            return (end_ts - start_ts) / 1000.0
+
+        def block():
+            pass
+
+    elif package == "cupy":
+        import cupy as np
+        import numpy
+        from cupy import cuda
+
+        def convolve(signal, psf, mode="same"):
+            assert mode == "same"
+            signal_shape = numpy.array(signal.shape)
+            psf_shape = numpy.array(psf.shape)
+
+            pad_shape = (
+                signal_shape + psf_shape - (signal_shape % 2 != psf_shape % 2)
+            )
+
+            signal_slices = tuple(slice(0, size) for size in signal.shape)
+            psf_slices = tuple(slice(0, size) for size in psf.shape)
+
+            pad_signal = np.zeros(pad_shape, dtype=signal.dtype)
+            pad_signal[signal_slices] = signal
+
+            pad_psf = np.zeros(pad_shape, dtype=psf.dtype)
+            pad_psf[psf_slices] = psf
+
+            temp = np.fft.rfftn(pad_signal) * np.fft.rfftn(pad_psf)
+            inverse = np.fft.irfftn(temp)
+
+            offsets = psf_shape // 2 - (psf_shape % 2 == 0)
+            out_slices = tuple(
+                slice(offset, offset + size)
+                for offset, size in zip(offsets, signal.shape)
+            )
+            return inverse[out_slices]
+
+        def timestamp():
+            ev = cuda.Event()
+            ev.record()
+            return ev
+
+        def time_in_ms(start_ts, end_ts):
+            return cuda.get_elapsed_time(start_ts, end_ts)
+
+        def block():
+            cuda.runtime.deviceSynchronize()
+
     image = np.random.rand(*shape).astype(float_type)
     psf = np.random.rand(*filter_shape).astype(float_type)
     im_deconv = np.full(image.shape, 0.5, dtype=float_type)
     psf_mirror = np.flip(psf)
 
-    start = time()
-
+    start = None
     for idx in range(num_iter + warmup):
         if idx == warmup:
-            start = time()
-        conv = np.convolve(im_deconv, psf, mode="same")
+            start = timestamp()
+        conv = convolve(im_deconv, psf, mode="same")
         relative_blur = image / conv
-        im_deconv *= np.convolve(relative_blur, psf_mirror, mode="same")
+        im_deconv *= convolve(relative_blur, psf_mirror, mode="same")
 
-    stop = time()
-    total = (stop - start) / 1000.0
+    stop = timestamp()
+
     if timing:
-        print("Elapsed Time: " + str(total) + " ms")
+        block()
+        print(f"Elapsed Time: {time_in_ms(start, stop)} ms")
 
 
 if __name__ == "__main__":
@@ -122,6 +181,13 @@ if __name__ == "__main__":
         help="number of times to benchmark this application (default 1 "
         "- normal execution)",
     )
+    parser.add_argument(
+        "--package",
+        type=str,
+        default="cunumeric",
+        dest="package",
+        help="NumPy package to use",
+    )
     args = parser.parse_args()
     run_benchmark(
         run_richardson_lucy,
@@ -133,5 +199,6 @@ if __name__ == "__main__":
             args.I,
             args.warmup,
             args.timing,
+            args.package,
         ),
     )
